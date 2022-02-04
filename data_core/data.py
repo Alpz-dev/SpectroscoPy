@@ -122,6 +122,7 @@ class Data(object):
                     y_label = self.y_label,
                     data_label = self.data_label)
 
+    #returns log base 10 of the y dataset
     def log10(self):
         return Data(self.x, np.log10(self.y),
                     x_label = self.x_label,
