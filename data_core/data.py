@@ -210,7 +210,14 @@ class Data(object):
                     y_label = self.y_label,
                     data_label = self.data_label)
 
-    def randomize(self, std):
+    def randomize(self, std: float):
+        """
+        Randomizes values of a data set within a gaussian distribution centered around each value in the data set and a
+        standard deviation.
+
+        :param std: standard deviation of the gaussian distribution
+        :return: the randomized data as a Data object
+        """
         y = []
         for val in self.y:
             y.append(random.gauss(val, std))
