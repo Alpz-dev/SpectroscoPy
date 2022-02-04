@@ -129,6 +129,7 @@ class Data(object):
                     y_label = self.y_label,
                     data_label = self.data_label)
 
+    #returns the transposition of the data set (i.e. x->y and y->x)
     def transpose(self):
         return Data(self.y, self.x,
                     x_label = self.y_label,
@@ -191,6 +192,8 @@ class Data(object):
                     y_label = self.y_label,
                     data_label = self.data_label)
 
+    #Crops a data set to a specified x_window
+    #NOTE: RETURNED DATASET < ORIGINAL DATASET IN X DIMENSION
     def crop(self, x_window):
         start = 0
         end = self.x.size
