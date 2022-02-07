@@ -212,11 +212,12 @@ class Data(object):
 
     def randomize(self, std: float):
         """
-        Randomizes values of a data set within a gaussian distribution centered around each value in the data set and a
-        standard deviation.
+        Randomizes y values centered the original value. Uses a gaussian distribution with a mean of the original value
+        and a specified standard deviation.
 
         :param std: standard deviation of the gaussian distribution
-        :return: the randomized data as a Data object
+        :return: randomized Data
+
         """
         y = []
         for val in self.y:
@@ -620,7 +621,6 @@ def import_csv(file_name, data_label = ""):
     data = csv.reader((line.replace('\0', '') for line in file), delimiter = ",")
     x = np.zeros(0)
     y = np.zeros(0)
-    numerical_characters = {"0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "-", "+", "E", ".", ","}
     for line in data:
         if line != []:
             if line[0].isnumeric():

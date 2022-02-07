@@ -14,7 +14,9 @@ black = ["#111133"]
 microsoft = ["#fff100", "#ff8c00", "#e81123", "#ec008c", "#68217a", "#00188f", "#00bcf2", "#00b294", "#009e49", "#bad80a"]
 true_rainbow = ["#4C0594", "#357ECD", "#24C442", "#E5E33F", "#E57C00", "#CE141F"]
 three_color = ["#ffb14e","#ea5f94","#0000ff"]
-# Plots a single data set
+
+
+# Plots a single "Data" object
 def uni_plot(dataset, fig_num: int,
              color: str = "black",
              xlabel: str = "",
@@ -57,11 +59,10 @@ def uni_plot(dataset, fig_num: int,
         plt.legend(loc = "best", fontsize = labelsize - 2, frameon = True, fancybox = False)
 
     plt.tight_layout()
-    #plt.show()
 
 
-# Plots multiple data sets on a single plot (sep = False) or
-# plots multiple data sets on separate plots (sep = True)
+# Plots multiple Data objects overlapped on a single figure (sep = False) or
+# plots multiple Data objects on separate figures (sep = True)
 def multi_plot(data_array: np.array,
                sep: bool = False,
                color_scheme: list = None,
