@@ -1,0 +1,17 @@
+README.md
+setup.py
+SpectroscoPy/__init__.py
+SpectroscoPy/data.py
+SpectroscoPy/electro.py
+SpectroscoPy/exponential.py
+SpectroscoPy/fileIO.py
+SpectroscoPy/gaussian.py
+SpectroscoPy/line.py
+SpectroscoPy/nmr.py
+SpectroscoPy/plot.py
+SpectroscoPy/tddft.py
+SpectroscoPy.egg-info/PKG-INFO
+SpectroscoPy.egg-info/SOURCES.txt
+SpectroscoPy.egg-info/dependency_links.txt
+SpectroscoPy.egg-info/requires.txt
+SpectroscoPy.egg-info/top_level.txt

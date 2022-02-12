@@ -2,6 +2,12 @@ from setuptools import setup, find_packages
 
 setup(
     name='SpectroscoPy',
-    version='0.1.0',
-    packages=find_packages(include=['data_core', 'data_core.*'])
+    version='0.1.2',
+    author='Shreyas Srinivasan',
+    packages=find_packages(include=['SpectroscoPy', 'SpectroscoPy.*']),
+    install_requires=['numpy',
+                      'matplotlib',
+                      'scipy',
+                      'tqdm',
+                      'scalene']
 )
