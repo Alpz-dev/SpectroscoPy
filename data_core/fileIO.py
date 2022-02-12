@@ -1,6 +1,7 @@
 import csv
 
 import numpy as np
+from memory_profiler import profile
 
 from data_core.data import Data
 
@@ -26,14 +27,16 @@ def import_csv(file_name: str, data_label="", x_label="", y_label="") -> Data:
 
 # Imports *.txt UV-Vis data from the Agilent ChemStation v10.0.1 software for Windows XP
 # Creates a data obj containing x and y values from the file
+
+@profile
 def import_data(file_name: str, data_label="", x_label="", y_label="") -> Data:
     if file_name.endswith(".csv"):
         return import_csv(file_name, data_label=data_label, x_label=x_label, y_label=y_label)
 
     data = open(file_name, "r")
 
-    x = np.zeros(0)
-    y = np.zeros(0)
+    x = []
+    y = []
 
     for line in data.read().splitlines():
         has_alpha = False
@@ -47,10 +50,10 @@ def import_data(file_name: str, data_label="", x_label="", y_label="") -> Data:
                 if line[i].isspace():
                     x_val = float(line[:i].replace(',', ''))
                     y_val = float(line[i + 1:].replace(',', ''))
-                    np.append(x, x_val)
-                    np.append(y, y_val)
+                    x.append(x_val)
+                    y.append(y_val)
 
-    return Data(x, y, data_label=data_label, x_label=x_label, y_label=y_label)
+    return Data(np.array(x), np.array(y), data_label=data_label, x_label=x_label, y_label=y_label)
 
 
 def export_txt(data: Data, file_path: str, delimiter: str = "\t", x_window: tuple = None):
