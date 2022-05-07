@@ -1,5 +1,6 @@
 import csv
 import sys
+from tabnanny import verbose
 
 import numpy as np
 from scipy import signal
@@ -13,6 +14,15 @@ import pickle
 import os
 from SpectroscoPy.exponential import *
 
+class Fit(object):
+    def __init__(self):
+        self.subfunc_data = []
+        self.subfuncs = []
+        self.fit_data = None
+        self.residual_data = None
+        self.result = ""
+    def __hash__(self):
+        return hash(hash(self.fit_data) + hash(len(self.bands_data)))
 
 # Generic useful functions
 def file_empty(file_path):
@@ -41,6 +51,8 @@ class Data(object):
         self.y_order = 0
 
         self.path = path
+
+        self.stds = np.ones(self.x.size)
 
     def __add__(self, other):
         if isinstance(other, Data):
@@ -192,7 +204,7 @@ class Data(object):
 
     # Crops a data set to a specified x_window
     # NOTE: RETURNED DATASET < ORIGINAL DATASET IN X DIMENSION
-    def crop(self, x_window):
+    def slice(self, x_window):
         start = 0
         end = self.x.size
 
@@ -207,6 +219,32 @@ class Data(object):
                     x_label=self.x_label,
                     y_label=self.y_label,
                     data_label=self.data_label)
+    
+    def flip(self, x = True, y = False):
+        _x = self.x
+        _y = self.y
+        if x:
+            _x = np.flip(self.x)
+        if y:
+            _y = np.flip(self.y)
+
+        return Data(_x, _y,
+                    x_label=self.x_label,
+                    y_label=self.y_label,
+                    data_label=self.data_label)
+
+    def range(self, range: tuple):
+        prev_range = (np.max(self.x) - np.min(self.x))  
+        new_range = max(range) - min(range)
+
+        _x = ((self.x - np.min(self.x) * new_range) / prev_range) + min(range)
+
+        return Data(_x, self.y,
+                    x_label=self.x_label,
+                    y_label=self.y_label,
+                    data_label=self.data_label)
+        
+
 
     def randomize(self, std: float):
         """
@@ -235,7 +273,6 @@ class Data(object):
                     x_label=self.x_label,
                     y_label=self.y_label,
                     data_label=self.data_label)
-
     # Normalizes dataset within some x_window (defined relative to the x dataset)
     def normalize(self,
                   x_window: tuple = None):
@@ -248,8 +285,10 @@ class Data(object):
             end = int(self.find_closest(x_window[1]))
 
         _max = np.ndarray.max(self.y[start:end])
+        _min = np.ndarray.min(self.y[start:end])
+        _range = (_max - _min)
 
-        return self.scale(sy=(1 / _max))
+        return self.translate(dy = -_min).scale(sy = 1/_range)
 
     # Returns slope between two points (relative to the x array)
     def slope(self, x1: int, x2: int):
@@ -304,11 +343,18 @@ class Data(object):
         return (self.y[x1] + self.y[x2]) * (self.x[x2] - self.x[x1]) * 0.5
 
     # Calculates area under the curve between two points (relative to the x array) using the trapezoidal rule
-    def area(self, x1: int, x2: int):
+    def area(self, x_window = None):
+        start = 0
+        end = self.x.size
+
+        if x_window is not None:
+            start = int(self.find_closest(x_window[0]))
+            end = int(self.find_closest(x_window[1]))
+
 
         a = 0
 
-        for i in range(x1, x2, 1):
+        for i in range(start, end, 1):
             if i == self.x.size - 1:
                 a += self.trapezoidal_area(i, i)
             else:
@@ -324,6 +370,11 @@ class Data(object):
                     x_label=self.x_label,
                     y_label=self.y_label,
                     data_label=self.data_label)
+    
+
+
+
+
 
     # Finds the maximum value within some search window relative to a center point
     # WIP
@@ -449,9 +500,21 @@ class Data(object):
             start = int(self.find_closest(x_window[0]))
             end = int(self.find_closest(x_window[1]))
 
+  
+       
+
         for i in range(0, len(args), 3):
-            _bands.append(Data(self.x, Gaussian(args[i], args[i + 1], args[i + 2]).eval(self.x)))
-        return sum((self.y[start:end] - np.sum(_bands).y[start:end]) ** 2)
+            _bands.append(Data(self.x, Lorentzian(args[i], args[i + 1], args[i + 2]).eval(self.x)))
+
+        res = np.sum(
+            np.square(
+                (self.y[start:end] - np.sum(_bands).y[start:end])/self.stds[start:end]
+                )
+            )
+        return res
+    
+   
+
 
     # Deconvolutes a data set
     def deconvolute(self, units: str,
@@ -488,9 +551,9 @@ class Data(object):
         i = 0
         for center in _centers:
             if heights_given is None:
-                inputs += [self.y[self.find_closest(center)], center, 2 * (i + 1)]
+                inputs += [self.y[self.find_closest(center)], center, 5]
             else:
-                inputs += [heights_given[i], center, 1]
+                inputs += [heights_given[i], center, 5]
             i += 1
 
         if save_name is not None:
@@ -507,8 +570,9 @@ class Data(object):
 
         bounds = []
         for i in range(0, len(inputs), 3):
-            bounds += [(abs(inputs[i]) / 2, abs(inputs[i])), (inputs[i + 1] - 50, inputs[i + 1] + 50), (0.01, 100)]
-
+            #bounds += [(0, abs(inputs[i])*10), (inputs[i + 1] - 10, inputs[i + 1] + 10), (None, None)]
+            bounds += [(None, None), (None, None), (None, None)]
+        
         pbar = tqdm(total=np.inf,
                     desc=F"\"{self.data_label}\": Deconvoluting {len(_centers)} bands",
                     unit=" iterations")
@@ -518,8 +582,8 @@ class Data(object):
 
         result = minimize(self.deconvolution_error, inputs,
                           args=(x_window,),
-                          method="TNC",
-                          bounds=bounds,
+                          method="CG",
+                          #bounds=bounds,
                           callback=pbar_update,
                           tol=1E-10,
                           options={'maxiter': 1000000})
@@ -531,18 +595,24 @@ class Data(object):
         print(result.message)
         print(F"Error: {np.round(result.fun, decimals=5)}")
         print("Bands:")
-        print("# \tc    \th    \tw   ")
+        print("# \tc    \th    \tw   \tFWHM")
+        
+        _resGauss = []
 
         for i in range(0, len(list(result.x)), 3):
-            _res.append(Data(self.x, Gaussian(list(result.x)[i],
+            _res.append(Data(self.x, Lorentzian(list(result.x)[i],
                                               list(result.x)[i + 1],
                                               list(result.x)[i + 2]).eval(self.x),
                              data_label=F"Band {i // 3}"))
+            _resGauss.append(Lorentzian(list(result.x)[i],
+                                              list(result.x)[i + 1],
+                                              list(result.x)[i + 2]))
             if result.success:
                 print(F"{i // 3}\t"
                       F"{np.round((result.x)[i + 1], decimals=5)}\t"
                       F"{np.round(list(result.x)[i], decimals=5)}\t"
-                      F"{np.round(list(result.x)[i + 2], decimals=5)}")
+                      F"{np.round(list(result.x)[i + 2], decimals=5)}\t"
+                      F"{np.round(2 * np.sqrt(2 * np.log(2)) * list(result.x)[i + 2], decimals=5)}")
 
         band_sum = np.sum(_res)
 
@@ -557,12 +627,177 @@ class Data(object):
                 result_dict = open(save_name, "wb")
                 pickle.dump(oldDict, result_dict)
                 result_dict.close()
+        
+        res_obj = Fit()
 
-        return {"bands": _res,
-                "fit": [band_sum],
-                "output": result}
+        res_obj.subfunc_data = _res
+        res_obj.fit_data = band_sum
+        res_obj.result = result
+        res_obj.subfuncs = sorted(_resGauss, key=lambda x: x.c)
 
-    def trifit_error(self, inputs, x_window=None):
+        return res_obj
+
+    # Error function for deconvolution minimization
+    def exgauss_deconvolution_error(self, args, x_window=None):
+        _bands = []
+
+        start = 0
+        end = self.x.size
+
+
+        if x_window is not None:
+            start = int(self.find_closest(x_window[0]))
+            end = int(self.find_closest(x_window[1]))
+
+        size = np.abs(end - start)
+
+        for i in range(0, len(args), 4):
+            _bands.append(Data(self.x, ExGaussian(args[i], args[i + 1], args[i + 2], args[i + 3]).eval(self.x)))
+        res = np.sum(
+            np.square(
+                (self.y[start:end] - np.sum(_bands).y[start:end])/self.stds[start:end]
+                )
+            )
+
+        
+        return res
+    
+   
+
+
+    # Deconvolutes a data set
+    def exgauss_deconvolute(self, units: str,
+                    x_window: tuple = None,
+                    slope_threshold: float = -0.00001,
+                    amp_threshold: float = 0.1,
+                    _window: int = None,
+                    _conv_threshold: int = None,
+                    centers_given=None,
+                    heights_given=None,
+                    save_name: str = None):
+
+        conv_threshold = 3
+
+        if conv_threshold is not None:
+            conv_threshold = _conv_threshold
+
+        window = 10
+
+        if window is not None:
+            window = _window
+
+        if centers_given is None:
+            _centers = list(self.find_peaks_and_shoulders(x_window=x_window,
+                                                          slope_threshold=slope_threshold,
+                                                          amp_threshold=amp_threshold,
+                                                          _window=_window,
+                                                          _conv_threshold=_conv_threshold))
+        else:
+            _centers = centers_given
+
+        _centers = list(set(_centers))
+        inputs = []
+        i = 0
+        for center in _centers:
+            if heights_given is None:
+                inputs += [self.y[self.find_closest(center)], center, 1, 1]
+            else:
+                inputs += [heights_given[i], center, 1, 1]
+            i += 1
+
+        if save_name is not None:
+            if not file_empty(save_name):
+                result_dict = open(save_name, "rb")
+                oldDict = pickle.load(result_dict)
+                result_dict.close()
+                if tuple(inputs) in oldDict:
+                    return oldDict[tuple(inputs)]
+            else:
+                result_dict = open(save_name, "wb")
+                pickle.dump({" ": " "}, result_dict)
+                result_dict.close()
+
+        bounds = []
+        for i in range(0, len(inputs), 4):
+            bounds += [(abs(inputs[i]) / 2, abs(inputs[i]) * 4), (inputs[i + 1] - 8, inputs[i + 1] + 8), (0.001, 100), (0.01, 100)]
+
+        pbar = tqdm(total=np.inf,
+                    desc=F"\"{self.data_label}\": Deconvoluting {len(_centers)} bands",
+                    unit=" iter")
+
+        def pbar_update(inputs):
+            pbar.update(1)
+
+        result = minimize(self.exgauss_deconvolution_error, inputs,
+                          args=(x_window,),
+                          method="Nelder-Mead",
+                          bounds=bounds,
+                          callback=pbar_update,
+                          tol=1E-10,
+                          options={'maxiter': 1000000})
+
+        pbar.close()
+
+        _res = []
+
+        print(result.message)
+        print(F"Error: {np.round(result.fun, decimals=5)}")
+        print("Bands:")
+        print("# \tc    \th    \tw   \tl")
+        
+        _resGauss = []
+
+        for i in range(0, len(list(result.x)), 4):
+            _res.append(Data(self.x, ExGaussian(
+                list(result.x)[i],
+                list(result.x)[i+1],
+                list(result.x)[i+2], 
+                list(result.x)[i+3]).eval(self.x),
+                             data_label= " "))
+            _resGauss.append(ExGaussian(list(result.x)[i],
+                                        list(result.x)[i + 1],
+                                        list(result.x)[i + 2], 
+                                        list(result.x)[i + 3]))
+            if result.success:
+                print(F"{i // 3}\t"
+                      F"{np.round((result.x)[i + 1], decimals=5)}\t"
+                      F"{np.round(list(result.x)[i], decimals=5)}\t"
+                      F"{np.round(list(result.x)[i + 2], decimals=5)}\t"
+                      F"{np.round(list(result.x)[i + 3], decimals=5)}")
+
+        band_sum = np.sum(_res)
+
+        band_sum.data_label = F"{self.data_label} Fit"
+
+        
+        
+        res_obj = Fit()
+
+        _res.sort(key = lambda d: d.x[d.find_closest(np.max(d.y), y=True, x=False)])
+
+        for i in range(len(_res)):
+            _res[i].data_label = F"Distr. {i + 1}"
+
+        res_obj.subfunc_data = _res
+        res_obj.fit_data = band_sum
+        res_obj.result = result
+        res_obj.residual_data = Data(self.x, self.y - res_obj.fit_data.y)
+        res_obj.subfuncs = sorted(_resGauss, key=lambda x: x.c)
+
+        if save_name is not None:
+            if not file_empty(save_name):
+                result_dict = open(save_name, "rb")
+                oldDict = pickle.load(result_dict)
+                result_dict.close()
+                oldDict[tuple(inputs)] = res_obj
+                result_dict = open(save_name, "wb")
+                pickle.dump(oldDict, result_dict)
+                result_dict.close()
+
+        return res_obj
+
+    #inputs is list of tuples of T and B
+    def trifit_error(self, args, x_window=None):
         start = 0
         end = self.x.size
 
@@ -572,14 +807,48 @@ class Data(object):
 
         _fit_vals = np.zeros(np.size(self.x[start:end]))
 
-        print(inputs, type(inputs))
-        for i in range(0, np.size(inputs), 2):
-            T, B = inputs[i], inputs[i + 1]
-            _fit_vals += ExponentialDecay(T, B).exponential_decay(self.x[start:end])
+        for i in range(0, len(args), 2):
+            T, B = args[i], args[i+1]
+            _fit_vals += ExponentialDecay(T, B).eval(self.x[start:end])
 
-        return sum(self.y[start:end] - _fit_vals[start:end]) ** 2
+        return sum((self.y[start:end] - _fit_vals)**2)
+    
+    def tri_exponential_fit(self, inputs, 
+                            x_window=None):
+        
+        start = 0
+        end = self.x.size
 
-    def linear_regression(self, x_window=None):
+        if x_window is not None:
+            start = int(self.find_closest(x_window[0]))
+            end = int(self.find_closest(x_window[1]))
+
+        
+
+        
+        
+        
+        result = minimize(self.trifit_error, inputs,
+                          args=(x_window,),
+                          method="Powell",
+                          tol=1E-15,
+                          options={'maxiter': 100000000})
+
+
+
+        print(F'''
+        Error: {result.fun}
+        Tau (ns): {result.x[0]*1E9}
+        B: {result.x[1]}
+        ''')
+        
+        fit_vals = result.x
+        fit_func = ExponentialDecay(fit_vals[0], fit_vals[1])
+        fit_data = Data(self.x[start:end], fit_func.eval(self.x[start:end]))
+        return {"data": fit_data,
+                "Tau": result.x[0]*1E9}
+
+    def linear_regression(self, x_window=None, verbose=False):
 
         start = 0
         end = self.x.size
@@ -600,15 +869,21 @@ class Data(object):
         ss_res = np.sum(residuals ** 2)
         ss_tot = np.sum((self.y[start:end] - np.mean(self.y[start:end])) ** 2)
         r_sqrd = 1 - (ss_res / ss_tot)
-        print(F"{self.data_label}")
-        print(F"X int: {-b / m}")
-        print(F"m:{m}, b:{b}")
-        print(F"R^2: {r_sqrd}")
+        adj_r_sqrd = 1 - ((((1 - r_sqrd)**2) * (self.y.size - 1))/(self.y.size - 1 - 1))
+        if verbose:
+            print(F"{self.data_label}")
+            print(F"X int: {-b / m}")
+            print(F"m:{m}, b:{b}")
+            print(F"adj R^2: {adj_r_sqrd}")
+            print(F"R^2: {r_sqrd}")
 
         return {"data": Data(self.x[start:end], Line(m, b).eval(self.x[start:end]),
                              data_label=self.data_label),
                 "slope": m,
-                "intercept": b}
+                "intercept": b,
+                "adj R^2": adj_r_sqrd,
+                "R^2": r_sqrd, 
+                "func": Line(m, b)}
 
 
 

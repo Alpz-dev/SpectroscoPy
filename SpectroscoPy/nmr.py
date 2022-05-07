@@ -6,6 +6,7 @@ import scipy as sp
 import os
 plt.style.use('ggplot')
 
+dic, data = ng.pipe.read('')
 dic, data = ng.fileio.bruker.read('Test_data/Ni-CyHT_10/Ni-CyHT/10')
 lst = []
 fid = ng.bruker.remove_digital_filter(dic, data)

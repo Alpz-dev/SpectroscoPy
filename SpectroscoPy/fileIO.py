@@ -1,7 +1,7 @@
 import csv
 
 import numpy as np
-from memory_profiler import profile
+
 
 from SpectroscoPy.data import Data
 
@@ -9,28 +9,34 @@ from SpectroscoPy.data import Data
 # Imports CSV (comma separated value) files while ignoring any text or headers
 # NOTE: ONLY IMPORTS NUMERICAL DATA (i.e. values comprised of only 0, 1, 2, 3, ... 9)
 def import_csv(file_name: str, data_label="", x_label="", y_label="") -> Data:
-    file = open(file_name, 'r')
+    file = open(file_name, 'r', encoding='utf16')
 
-    data = csv.reader((line.replace('\0', '') for line in file), delimiter=",")
 
-    x = np.zeros(0)
-    y = np.zeros(0)
 
+    data = csv.reader(file)
+
+
+    x = []
+    y = []
+    std = []
     for line in data:
         if line:
             if line[0].isnumeric():
-                np.append(x, float(line[0]))
-                np.append(y, float(line[1]))
+                x.append(float(line[0]))
+                y.append(float(line[1]))
+                std.append(float(line[2]))
 
-    return Data(x, y, data_label=data_label, x_label=x_label, y_label=y_label)
+    dat = Data(np.array(x), np.array(y), data_label=data_label, x_label=x_label, y_label=y_label)
+    dat.stds = np.array(std)
+    return dat
 
 
 # Imports *.txt UV-Vis data from the Agilent ChemStation v10.0.1 software for Windows XP
 # Creates a data obj containing x and y values from the file
 
-@profile
+
 def import_data(file_name: str, data_label="", x_label="", y_label="") -> Data:
-    if file_name.endswith(".csv"):
+    if file_name.endswith(".CSV"):
         return import_csv(file_name, data_label=data_label, x_label=x_label, y_label=y_label)
 
     data = open(file_name, "r")

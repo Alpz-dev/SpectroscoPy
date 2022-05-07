@@ -1,4 +1,6 @@
+
 from matplotlib import pyplot as plt
+from matplotlib.backend_bases import LocationEvent
 import numpy as np
 
 # Color Schemes
@@ -14,6 +16,7 @@ black = ["#111133"]
 microsoft = ["#fff100", "#ff8c00", "#e81123", "#ec008c", "#68217a", "#00188f", "#00bcf2", "#00b294", "#009e49", "#bad80a"]
 true_rainbow = ["#4C0594", "#357ECD", "#24C442", "#E5E33F", "#E57C00", "#CE141F"]
 three_color = ["#ffb14e","#ea5f94","#0000ff"]
+three_more_colors=["#7B4B94", "#7D82B8", "#7A9E7E"]
 
 
 # Plots a single "Data" object
@@ -26,6 +29,7 @@ def uni_plot(dataset, fig_num: int,
              y_window: tuple = None,
              legend = True,
              scatter = False,
+             line = False,
              xticks = None,
              yticks = None,
              linewidth = 1.5,
@@ -33,10 +37,19 @@ def uni_plot(dataset, fig_num: int,
 
     plt.figure(fig_num, figsize = (8, 6))
 
-    if scatter:
-        plt.scatter(dataset.x, dataset.y, color = color, edgecolor = color, label = dataset.data_label, marker = "^", s = 80)
+    if isinstance(legend, str):
+        legend_val = legend
+        _legend = True
     else:
-        plt.plot(dataset.x, dataset.y, linewidth = linewidth, color = color, label = dataset.data_label, linestyle = linestyle)
+        legend_val = dataset.data_label
+        _legend = legend
+
+    if scatter:
+        plt.scatter(dataset.x, dataset.y, color = color, edgecolor = color, label = legend_val, marker = "^", s = 30)
+    elif line:
+        plt.vlines(dataset.x, min(dataset.y), dataset.y, linewidth = linewidth, color = color, label = legend_val, linestyle = linestyle)
+    else:
+        plt.plot(dataset.x, dataset.y, linewidth = linewidth, color = color, label = legend_val, linestyle = linestyle)
 
     plt.xlabel(xlabel, fontsize = labelsize)
     plt.ylabel(ylabel, fontsize = labelsize)
@@ -55,15 +68,21 @@ def uni_plot(dataset, fig_num: int,
     if x_window is not None: plt.xlim(x_window)
     if y_window is not None: plt.ylim(y_window)
 
-    if legend:
+    if _legend:
         plt.legend(loc = "best", fontsize = labelsize - 2, frameon = True, fancybox = False)
 
+
+    plt.minorticks_on()
+    plt.tick_params(axis = "x", which = "minor", direction = "in", length = 3, top = True)
+    plt.tick_params(axis = "x", which = "major", direction = "in", length = 5, top = True)
+    plt.tick_params(axis = "y", which = "minor", direction = "in", length = 3, right = True)
+    plt.tick_params(axis = "y", which = "major", direction = "in", length = 5, right = True)
     plt.tight_layout()
 
 
 # Plots multiple Data objects overlapped on a single figure (sep = False) or
 # plots multiple Data objects on separate figures (sep = True)
-def multi_plot(data_array: np.array,
+def multi_plot(data_array: list,
                sep: bool = False,
                color_scheme: list = None,
                xlabel: str = "",
@@ -74,6 +93,7 @@ def multi_plot(data_array: np.array,
                legend = True,
                fig_num = None,
                scatter = False,
+               line = False,
                xticks=None,
                yticks=None,
                linewidth = 1.5,
@@ -83,7 +103,7 @@ def multi_plot(data_array: np.array,
         color_scheme = three_color
 
 
-    for i in range(data_array.size):
+    for i in range(len(data_array)):
 
         if sep:
             num = i
@@ -93,36 +113,35 @@ def multi_plot(data_array: np.array,
             else:
                 num = 1
 
-        if (isinstance(data_array[i], np.ndarray) or isinstance(data_array[i], list)):
-            for elem in data_array[i]:
-                uni_plot(elem, num,
-                         # color scheme stepped by fixed step if len(dataset) < len(colorscheme)
-                         color = color_scheme[((len(color_scheme) // data_array.size) + i) % len(color_scheme)],
-                         xlabel = xlabel,
-                         ylabel = ylabel,
-                         labelsize = labelsize,
-                         x_window = x_window,
-                         y_window = y_window,
-                         legend = legend,
-                         scatter = scatter,
-                         yticks = yticks,
-                         xticks = xticks,
-                         linewidth = linewidth,
-                         linestyle = linestyle)
 
+        if isinstance(scatter, list):
+            _scatter = scatter[i]
         else:
-            uni_plot(data_array[i], num,
-                     # color scheme stepped by fixed step if len(dataset) < len(colorscheme)
-                     color = color_scheme[((len(color_scheme) // data_array.size) + i) % len(color_scheme)],
-                     xlabel = xlabel,
-                     ylabel = ylabel,
-                     labelsize = labelsize,
-                     x_window = x_window,
-                     y_window = y_window,
-                     legend = legend,
-                     scatter = scatter,
-                     yticks = yticks,
-                     xticks = xticks,
-                     linewidth = linewidth,
-                     linestyle = linestyle)
+            _scatter = scatter
+        
+        if isinstance(linestyle, list):
+            _linestyle = linestyle[i]
+        else:
+            _linestyle = linestyle
+        
+        if isinstance(legend, list):
+            _legend = legend[i]
+        else:
+            _legend = legend
+
+        uni_plot(data_array[i], num,
+                # color scheme stepped by fixed step if len(dataset) < len(colorscheme)
+                color = color_scheme[i%len(color_scheme)],
+                xlabel = xlabel,
+                ylabel = ylabel,
+                labelsize = labelsize,
+                x_window = x_window,
+                y_window = y_window,
+                legend = _legend,
+                scatter = _scatter,
+                yticks = yticks,
+                xticks = xticks,
+                linewidth = linewidth,
+                linestyle = _linestyle, 
+                line = line)
 
