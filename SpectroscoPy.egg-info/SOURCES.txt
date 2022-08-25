@@ -10,6 +10,7 @@ SpectroscoPy/line.py
 SpectroscoPy/nmr.py
 SpectroscoPy/plot.py
 SpectroscoPy/tddft.py
+SpectroscoPy/tlc.py
 SpectroscoPy.egg-info/PKG-INFO
 SpectroscoPy.egg-info/SOURCES.txt
 SpectroscoPy.egg-info/dependency_links.txt
